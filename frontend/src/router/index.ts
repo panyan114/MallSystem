@@ -1,8 +1,10 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/userStore'
 
-const routes = [
+// 必须显式标注：不标注时 TS 把数组推成各路由对象字面量的联合，
+// meta 里没写的字段被推成 `?: undefined`，和 RouteRecordRaw 对不上。
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     redirect: '/home',
@@ -61,6 +63,12 @@ const routes = [
     name: 'Collect',
     component: () => import('@/views/profile/CollectList.vue'),
     meta: { title: '我的收藏', requiresAuth: true }
+  },
+  {
+    path: '/coupon',
+    name: 'Coupon',
+    component: () => import('@/views/coupon/CouponCenter.vue'),
+    meta: { title: '我的优惠券', requiresAuth: true }
   },
   {
     path: '/profile',

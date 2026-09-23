@@ -17,11 +17,13 @@ import com.mall.mapper.OrderItemMapper;
 import com.mall.mapper.OrderMapper;
 import com.mall.mapper.ProductMapper;
 import com.mall.mapper.SkuMapper;
+import com.mall.service.CouponService;
 import com.mall.service.OrderService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -48,15 +50,18 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final ProductMapper productMapper;
     private final SkuMapper skuMapper;
     private final CartMapper cartMapper;
+    private final CouponService couponService;
 
     public OrderServiceImpl(OrderItemMapper orderItemMapper,
                             ProductMapper productMapper,
                             SkuMapper skuMapper,
-                            CartMapper cartMapper) {
+                            CartMapper cartMapper,
+                            CouponService couponService) {
         this.orderItemMapper = orderItemMapper;
         this.productMapper = productMapper;
         this.skuMapper = skuMapper;
         this.cartMapper = cartMapper;
+        this.couponService = couponService;
     }
 
     @Override
@@ -112,11 +117,27 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             orderItems.add(orderItem);
         }
 
+        // 占券放在 save 之前：一是要拿到 totalAmount 才能判使用门槛，二是失败时在一条便宜的
+        // UPDATE 上就返回了，不必先插订单再回滚（那会烧掉自增 id 并长时间持有唯一索引锁）。
+        // reserve 走 REQUIRED 传播加入本方法的事务，后续任何一步失败都会把占券一并回滚。
+        CouponService.CouponReservation reservation = orderDTO.getUserCouponId() == null
+                ? null
+                : couponService.reserve(userId, orderDTO.getUserCouponId(), totalAmount);
+        // 不用券时也要显式给 0.00：MyBatis-Plus 会跳过 null 字段，留 null 会让接口返回
+        // "discountAmount": null 而不是 0.00，前端得处理两种空值。
+        BigDecimal discountAmount = reservation == null
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : reservation.discountAmount();
+
         Order order = new Order();
         order.setOrderNo(nextOrderNo());
         order.setUserId(userId);
         order.setTotalAmount(totalAmount);
-        order.setRealAmount(totalAmount);
+        order.setCouponId(reservation == null ? null : reservation.couponId());
+        order.setUserCouponId(reservation == null ? null : reservation.userCouponId());
+        order.setDiscountAmount(discountAmount);
+        // 不变式：totalAmount - discountAmount == realAmount，由 CouponCalculator 保证逐分精确
+        order.setRealAmount(totalAmount.subtract(discountAmount));
         order.setStatus(STATUS_UNPAID);
         order.setAddress(orderDTO.getAddress().trim());
         order.setReceiver(orderDTO.getReceiver().trim());
@@ -152,7 +173,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean cancelOrder(Long orderId, Long userId, boolean onlyOwned) {
-        requireOrder(orderId, userId, onlyOwned);
+        Order order = requireOrder(orderId, userId, onlyOwned);
 
         // 先「抢占」状态，再回滚库存。
         // 把「判断 status==0」和「写入 status=4」合并成一条带 WHERE 条件的 UPDATE：
@@ -163,6 +184,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         if (updated == 0) {
             throw new BusinessException(ErrorCode.ORDER_CANNOT_CANCEL);
         }
+
+        // 退回优惠券。用户此时一分钱没付（唯一起点是「待付款」），退券才是回到下单前的状态。
+        // 与 restoreStock 依赖同一个保证：状态「抢占」成功者只有一个，所以回退体只跑一次。
+        // 用 order.getUserId() 而非入参 userId —— 店主替消费者取消时，券是属于下单人的。
+        couponService.restore(order.getUserId(), order.getUserCouponId());
 
         List<OrderItem> items = orderItemMapper.selectList(new LambdaQueryWrapper<OrderItem>()
                 .eq(OrderItem::getOrderId, orderId));

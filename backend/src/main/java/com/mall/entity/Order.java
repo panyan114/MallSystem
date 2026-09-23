@@ -16,6 +16,12 @@ public class Order {
     private Long userId;
     private BigDecimal totalAmount;
     private BigDecimal realAmount;
+    /** 使用的优惠券ID（t_coupon.id），仅用于按券统计。 */
+    private Long couponId;
+    /** 使用的用户优惠券ID（t_user_coupon.id），取消订单时据此精确退回。 */
+    private Long userCouponId;
+    /** 优惠金额，未使用优惠券为 0.00。恒有 totalAmount - discountAmount == realAmount。 */
+    private BigDecimal discountAmount;
     private Integer status;
     private String address;
     private String receiver;

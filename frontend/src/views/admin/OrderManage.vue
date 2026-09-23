@@ -35,7 +35,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getOrderList, cancelOrder, shipOrder as shipOrderApi } from '@/api/orderApi'
+// cancelOrder 必须改名导入：下面有个同名本地函数，不改名的话函数体里的 cancelOrder(id)
+// 解析到它自己，变成无限递归——点「取消」永远不会发出请求。
+import { getOrderList, cancelOrder as cancelOrderApi, shipOrder as shipOrderApi } from '@/api/orderApi'
 import { ORDER_STATUS_MAP } from '@/utils/constants'
 
 const orderList = ref<any[]>([])
@@ -77,7 +79,7 @@ const shipOrder = async (id: number) => {
 
 const cancelOrder = async (id: number) => {
   try {
-    await cancelOrder(id)
+    await cancelOrderApi(id)
     loadOrders()
     ElMessage.success('订单已取消')
   } catch {}

@@ -45,6 +45,14 @@
           </div>
           <span class="item-total">¥{{ formatPrice(item.totalPrice) }}</span>
         </div>
+        <div v-if="hasDiscount" class="order-subtotal">
+          <span>商品总额</span>
+          <span>¥{{ formatPrice(order.totalAmount) }}</span>
+        </div>
+        <div v-if="hasDiscount" class="order-subtotal discount">
+          <span>优惠券</span>
+          <span>-¥{{ formatPrice(order.discountAmount) }}</span>
+        </div>
         <div class="order-total">
           <span>应付总额</span>
           <strong>¥{{ formatPrice(order.realAmount) }}</strong>
@@ -73,6 +81,8 @@ const order = ref<any>(null)
 const items = ref<any[]>([])
 const loading = ref(false)
 const backPath = computed(() => route.path.startsWith('/admin') ? '/admin/order' : '/order')
+// 只有真的用券时才展示金额明细，否则「商品总额」和「应付总额」是同一个数字，纯属噪音
+const hasDiscount = computed(() => Number(order.value?.discountAmount || 0) > 0)
 
 const onlyOwned = computed(() => route.query.mine !== '0')
 const statusText = computed(() => {
@@ -221,6 +231,20 @@ onMounted(loadDetail)
 .order-total strong {
   color: #e4393c;
   font-weight: 700;
+}
+
+.order-subtotal {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 16px;
+  padding-top: 8px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.order-subtotal.discount {
+  color: #e4393c;
 }
 
 .order-total {

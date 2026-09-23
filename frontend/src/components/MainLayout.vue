@@ -41,6 +41,7 @@
                   <el-dropdown-item command="profile">个人中心</el-dropdown-item>
                   <el-dropdown-item command="orders">我的订单</el-dropdown-item>
                   <el-dropdown-item command="collect">我的收藏</el-dropdown-item>
+                  <el-dropdown-item command="coupon">我的优惠券</el-dropdown-item>
                   <el-dropdown-item v-if="userStore.isAdmin" command="admin">管理后台</el-dropdown-item>
                   <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
                 </el-dropdown-menu>

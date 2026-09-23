@@ -1,5 +1,12 @@
 {
   "compilerOptions": {
+    "composite": true,
+    // 被 tsconfig.json 的 "references" 引用，所以必须 composite；而 composite 项目
+    // 不允许 noEmit（TS6310），allowImportingTsExtensions 又要求有一个 emit 开关。
+    // 两者同时满足的写法就是 emitDeclarationOnly + 把声明丢进 node_modules/.tmp。
+    "emitDeclarationOnly": true,
+    "outDir": "./node_modules/.tmp/tsconfig.node",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "ES2022",
     "lib": ["ES2023"],
     "module": "ESNext",
@@ -8,7 +15,6 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",
-    "noEmit": true,
     "strict": true
   },
   "include": ["vite.config.ts"]

@@ -15,7 +15,10 @@ public enum ErrorCode {
     ORDER_NOT_FOUND(3001, "订单不存在"),
     ORDER_CANNOT_CANCEL(3002, "订单无法取消"),
     COUPON_EXPIRED(4001, "优惠券已过期"),
-    COUPON_NOT_AVAILABLE(4002, "优惠券不可用");
+    COUPON_NOT_AVAILABLE(4002, "优惠券不可用"),
+    COUPON_NOT_FOUND(4003, "优惠券不存在"),
+    COUPON_ALREADY_RECEIVED(4004, "优惠券已领取"),
+    COUPON_SOLD_OUT(4005, "优惠券已领完");
 
     private final int code;
     private final String message;

@@ -45,6 +45,33 @@ docker-compose down
 docker-compose down -v
 ```
 
+## 升级已有环境（数据库迁移）
+
+MySQL 的初始化脚本**只在数据目录为空时执行一次**。所以对一个已经在跑的卷，
+`docker-compose up -d` 不会帮你补上后来新增的表结构，必须手工执行迁移：
+
+```bash
+docker exec -i mall-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mall_db' \
+    < docker/mysql/migration/001_coupon_chain.sql
+```
+
+脚本是幂等的（每条 DDL 前先查 `INFORMATION_SCHEMA`），重复执行无副作用。
+全部迁移脚本都在 `docker/mysql/migration/` 下，按文件名顺序执行。
+**不要把它们放进 `docker/mysql/init/`** —— 那是权威建库脚本的目录。
+
+执行完请手动校验（迁移路径没有自动化测试覆盖）：
+
+```bash
+docker exec mall-mysql mysql -uroot -p -e 'SHOW CREATE TABLE mall_db.t_order\G' 
+docker exec mall-mysql mysql -uroot -p -e 'SHOW CREATE TABLE mall_db.t_user_coupon\G'
+```
+
+或者干脆重置数据（会清空所有数据，仅限开发环境）：
+
+```bash
+docker-compose down -v && docker-compose up -d
+```
+
 ## 访问地址
 
 | 入口 | 地址 | 说明 |

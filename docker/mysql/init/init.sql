@@ -88,6 +88,12 @@ CREATE TABLE t_order (
     user_id BIGINT NOT NULL COMMENT '用户ID',
     total_amount DECIMAL(10,2) NOT NULL COMMENT '订单总金额',
     real_amount DECIMAL(10,2) NOT NULL COMMENT '实付金额',
+    -- 优惠券相关。同时存 t_coupon.id 和 t_user_coupon.id 是有意的：
+    -- coupon_id 用于按券统计（这张券带来多少订单），user_coupon_id 是回退时的精确指针——
+    -- 取消订单要把用户那张券置回未使用，靠 (user_id, coupon_id) 反查等于隐式依赖唯一索引存在。
+    coupon_id BIGINT DEFAULT NULL COMMENT '优惠券ID(t_coupon.id)',
+    user_coupon_id BIGINT DEFAULT NULL COMMENT '用户优惠券ID(t_user_coupon.id)，取消订单时据此退回',
+    discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '优惠金额，未使用为 0.00',
     status TINYINT DEFAULT 0 COMMENT '状态：0=待付款，1=待发货，2=待收货，3=已完成，4=已取消',
     address VARCHAR(500) NOT NULL COMMENT '收货地址',
     receiver VARCHAR(50) NOT NULL COMMENT '收货人',
@@ -158,7 +164,11 @@ CREATE TABLE t_user_coupon (
     status TINYINT DEFAULT 0 COMMENT '状态：0=未使用，1=已使用，2=已过期',
     receive_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '领取时间',
     use_time DATETIME DEFAULT NULL COMMENT '使用时间',
-    INDEX idx_user_id (user_id),
+    -- 每人限领一张。唯一索引是唯一无竞态的强制手段：BaseMapper 表达不出
+    -- INSERT ... SELECT ... WHERE NOT EXISTS，而 SELECT ... FOR UPDATE 会在同一行上加第二把锁。
+    -- 代价：用户永远无法持有同一张券的多个副本，且 t_user_coupon 没有删除路径。
+    -- 两列都是 NOT NULL，所以不像 t_cart 的 uk_user_product 那样受 NULL 不等 NULL 影响。
+    UNIQUE INDEX uk_user_coupon (user_id, coupon_id),
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户优惠券表';
 
@@ -202,10 +212,12 @@ INSERT INTO t_coupon (name, type, min_amount, discount_value, total_count, recei
 ('全场9折券', 1, 0.00, 0.90, 300, 0, 1, '2026-01-01 00:00:00', '2027-12-31 23:59:59');
 
 -- 订单（user_id=2 为测试用户）
-INSERT INTO t_order (order_no, user_id, total_amount, real_amount, status, address, receiver, phone, create_time, pay_time) VALUES
-('202609180001', 2, 77.90, 77.90, 1, '北京市朝阳区建国路88号', '张三', '13800000002', '2026-09-18 10:30:00', '2026-09-18 10:31:00'),
-('202609190002', 2, 159.00, 139.00, 2, '上海市浦东新区世纪大道100号', '李四', '13800000002', '2026-09-19 14:20:00', '2026-09-19 14:21:00'),
-('202609200003', 2, 219.00, 219.00, 3, '广州市天河区体育西路50号', '王五', '13800000002', '2026-09-20 09:15:00', '2026-09-20 09:16:00');
+-- 第二单的 total(159.00) 与 real(139.00) 差 20 元：这是历史数据里唯一一笔用了券的订单，
+-- 补上 discount_amount=20.00 让三个金额自洽，否则订单详情页会渲染成「优惠 -¥0.00」却实付少了 20。
+INSERT INTO t_order (order_no, user_id, total_amount, real_amount, discount_amount, status, address, receiver, phone, create_time, pay_time) VALUES
+('202609180001', 2, 77.90, 77.90, 0.00, 1, '北京市朝阳区建国路88号', '张三', '13800000002', '2026-09-18 10:30:00', '2026-09-18 10:31:00'),
+('202609190002', 2, 159.00, 139.00, 20.00, 2, '上海市浦东新区世纪大道100号', '李四', '13800000002', '2026-09-19 14:20:00', '2026-09-19 14:21:00'),
+('202609200003', 2, 219.00, 219.00, 0.00, 3, '广州市天河区体育西路50号', '王五', '13800000002', '2026-09-20 09:15:00', '2026-09-20 09:16:00');
 
 INSERT INTO t_order_item (order_id, product_id, sku_id, product_name, product_image, sku_desc, price, quantity, total_price) VALUES
 (1, 1, 1, 'iPhone 15 手机壳', '', '透明', 29.00, 2, 58.00),

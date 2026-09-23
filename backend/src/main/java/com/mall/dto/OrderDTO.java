@@ -13,7 +13,11 @@ public class OrderDTO {
     private String receiver;
     private String phone;
     private String remark;
-    private Long couponId;
+    /**
+     * 要使用的优惠券——注意是 {@code t_user_coupon.id}（用户手里那张券），不是 {@code t_coupon.id}。
+     * 结算页从「我的优惠券」里选，拿到的就是用户券 id。两者语义不同，不要混用。
+     */
+    private Long userCouponId;
     private List<OrderItemDTO> items;
     private Boolean clearCart;
 }
