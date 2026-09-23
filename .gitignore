@@ -1,0 +1,22 @@
+# 含真实密钥，绝不能提交
+.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Java
+backend/target/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 调试截图，全项目无引用
+admin-dashboard-fixed.png

@@ -1,0 +1,39 @@
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/mall_db?characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # 注意：Spring Boot 3.x 的 Redis 前缀是 spring.data.redis，
+  # 旧版的 spring.redis.* 已被移除且会被静默忽略（配置了也不生效）。
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      database: ${SPRING_REDIS_DATABASE:0}
+      timeout: ${SPRING_REDIS_TIMEOUT:3000}
+      connect-timeout: ${SPRING_REDIS_CONNECT_TIMEOUT:3000}
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  # 【必填】签名密钥，至少 32 字符。生成方式：openssl rand -base64 48
+  # 未设置或过短时应用会拒绝启动，校验逻辑见 JwtConfig#validate。
+  # 切勿在这里写默认值——密钥随源码分发等于没有密钥，任何人都能签发店主 token。
+  secret: ${JWT_SECRET:}
+  # token 有效期（秒），默认 24 小时
+  expiration: ${JWT_EXPIRATION:86400}
